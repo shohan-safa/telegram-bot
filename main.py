@@ -3,8 +3,8 @@ import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# টোকেন ও এপিআই কি (আপনার ভিপিএস এনভায়রনমেন্ট থেকে অটো পাবে)
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# আপনার ভিপিএস-এর আগের ভ্যারিয়েবল নামগুলোই রাখা হলো
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # বটের মেমোরি বা মনে রাখার ডিকশনারি
@@ -25,7 +25,7 @@ def ask_openrouter(user_id, user_message):
     # নতুন মেসেজ মেমোরিতে যোগ করা
     user_memory[user_id].append({"role": "user", "content": user_message})
     
-    # মেমোরি বেশি বড় হতে না দেওয়া (টোকেন বাঁচাতে শেষ ১০টি চ্যাট রাখবে)
+    # মেমোরি লিমিট (শেষ ১০টি চ্যাট রাখবে যাতে টোকেন খরচ কম হয়)
     if len(user_memory[user_id]) > 11:
         user_memory[user_id] = [user_memory[user_id][0]] + user_memory[user_id][-10:]
 
@@ -35,13 +35,13 @@ def ask_openrouter(user_id, user_message):
         "Content-Type": "application/json"
     }
     data = {
-        "model": "google/gemini-2.5-flash", 
+        "model": "openai/gpt-4o-mini", # আপনার আগের মডেলটিই এখানে রাখা হলো
         "messages": user_memory[user_id]
     }
 
     try:
         response = requests.post(url, headers=headers, json=data)
-        bot_reply = response.json()['choices']['message']['content']
+        bot_reply = response.json()['choices'][0]['message']['content']
         # বটের উত্তর মেমোরিতে যোগ করা
         user_memory[user_id].append({"role": "assistant", "content": bot_reply})
         return bot_reply
@@ -63,7 +63,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    # এখানে BOT_TOKEN ব্যবহার করা হয়েছে, যা আপনার VPS-এ অলরেডি সেট করা আছে
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
